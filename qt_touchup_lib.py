@@ -46,8 +46,17 @@ def raws2qimg(raws):
     return img
 
 import cv2
-def touch_up(orig, mask, rad = 3, mode = cv2.INPAINT_NS):
-    res = cv2.inpaint(orig[:,:,:3], mask, rad, mode)
+INPAINT_TELEA = cv2.INPAINT_TELEA
+INPAINT_NS = cv2.INPAINT_NS
+INPAINT_CUSTOM = -1
+def touch_up(orig, mask, rad, mode):
+
+    if mode == INPAINT_CUSTOM:
+        res = orig[:,:,:3] # TODO: implement custom inpaint function here
+    else:
+        res = cv2.inpaint(orig[:,:,:3], mask, rad, mode)
+
+    # restack alpha channel if it exists
     if orig.shape[-1] == 4:
         res = np.dstack((res, np.expand_dims(orig[:,:,3], axis=2)))
     return res

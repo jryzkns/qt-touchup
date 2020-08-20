@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QLabel, QPushButton, QWidget, QMessageBox
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QLabel, QPushButton, QWidget, QMessageBox, QRadioButton, QSlider
 from PyQt5.QtCore import Qt, QSize, QRect, QPoint
 from PyQt5.QtGui import QImage, QPainter, QPen, QBrush, QColor
 import qt_touchup_lib
@@ -37,8 +37,44 @@ class QtTouchupApp(QMainWindow):
         self.touchupbutton.setGeometry(QRect(175, 115, 150, 40))
         self.touchupbutton.setEnabled(False)
 
+        self.touchup_mode = qt_touchup_lib.INPAINT_TELEA
+
+        self.moderadbutton1 = QRadioButton("TELEA", self)
+        self.moderadbutton1.setGeometry(QRect(15, 165, 150, 20))
+        self.moderadbutton1.setChecked(True)
+        self.moderadbutton1.toggled.connect(
+            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_TELEA))
+
+        self.moderadbutton2 = QRadioButton("NS", self)
+        self.moderadbutton2.setGeometry(QRect(15, 185, 150, 20))
+        self.moderadbutton2.setChecked(False)
+        self.moderadbutton2.toggled.connect(
+            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_NS))
+
+        self.moderadbutton3 = QRadioButton("CUSTOM", self)
+        self.moderadbutton3.setGeometry(QRect(15, 205, 150, 20))
+        self.moderadbutton3.setChecked(False)
+        self.moderadbutton3.toggled.connect(
+            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_CUSTOM))
+
+        # TODO: set up a signal for updating a label that displays the 
+        # value and updates the mask radius
+        self.touch_up_radius = QSlider(Qt.Horizontal, self)
+        self.touch_up_radius.setGeometry(QRect(15, 235, 75, 20))
+        self.touch_up_radius.setMinimum(1)
+        self.touch_up_radius.setMaximum(10)
+        self.touch_up_radius.setSingleStep(1)
+        self.touch_up_radius.setValue(5)
+
+
+    def set_touchup_mode(self, mode):
+        self.touchup_mode = mode
+
     def on_confirm_touchup_click(self):
-        self.img_raw = qt_touchup_lib.touch_up(self.img_raw, self.render.mask)
+        self.img_raw = qt_touchup_lib.touch_up( self.img_raw,
+                                                self.render.mask,
+                                                self.touch_up_radius.value(),
+                                                self.touchup_mode)
         self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
         self.render.reset_mask()
 
@@ -148,6 +184,7 @@ class RenderWin(QMainWindow):
             self.update()
 
             # update mask
+            # TODO: have to fill mask with matching radius as pen
             self.mask[  self.clip_w(event.pos().x()-1), 
                         self.clip_h(event.pos().y()-1)] = 1
 
