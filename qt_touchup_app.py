@@ -59,13 +59,19 @@ class QtTouchupApp(QMainWindow):
 
         # TODO: set up a signal for updating a label that displays the 
         # value and updates the mask radius
-        self.touch_up_radius = QSlider(Qt.Horizontal, self)
-        self.touch_up_radius.setGeometry(QRect(15, 235, 75, 20))
-        self.touch_up_radius.setMinimum(1)
-        self.touch_up_radius.setMaximum(10)
-        self.touch_up_radius.setSingleStep(1)
-        self.touch_up_radius.setValue(5)
+        self.touch_up_radius = 5
+        self.touch_up_slider = QSlider(Qt.Horizontal, self)
+        self.touch_up_slider.setGeometry(QRect(15, 235, 75, 20))
+        self.touch_up_slider.setMinimum(1)
+        self.touch_up_slider.setMaximum(10)
+        self.touch_up_slider.setSingleStep(1)
+        self.touch_up_slider.setValue(self.touch_up_radius)
+        self.touch_up_slider.valueChanged.connect(self.on_slider_update_value)
 
+    def on_slider_update_value(self):
+        self.touch_up_radius = self.touch_up_slider.value()
+        if self.render is not None:
+            self.render.r = self.touch_up_radius
 
     def set_touchup_mode(self, mode):
         self.touchup_mode = mode
@@ -73,10 +79,11 @@ class QtTouchupApp(QMainWindow):
     def on_confirm_touchup_click(self):
         self.img_raw = qt_touchup_lib.touch_up( self.img_raw,
                                                 self.render.mask,
-                                                self.touch_up_radius.value(),
+                                                self.touch_up_radius,
                                                 self.touchup_mode)
         self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
         self.render.reset_mask()
+        self.render.update()
 
     def on_confirm_clear_click(self):
         self.render.reset_mask()
@@ -89,18 +96,12 @@ class QtTouchupApp(QMainWindow):
 
     def on_finish_editing(self):
 
-        # Reset UI
         self.loadimgbutton.setEnabled(True)
         self.clearbutton.setEnabled(False)
         self.touchupbutton.setEnabled(False)
         self.imglabel.setText("")
 
-        # Clean up render window resources
-        del self.render.img
-        del self.render.mask
-        del self.render.mask_display
         self.render = None
-
 
     def on_confirm_loadimg_click(self):
 
@@ -123,9 +124,9 @@ class QtTouchupApp(QMainWindow):
                 self.touchupbutton.setEnabled(True)
 
                 # setup render window
-                self.render = RenderWin(QRect(0,0, self.w, self.h),
+                self.render = RenderWin(QRect(0, 0, self.w, self.h),
                                     qt_touchup_lib.raws2qimg(self.img_raw),
-                                    self.w, self.h, self)              
+                                    self.w, self.h, self.touch_up_radius, self)
                 self.render.show()
                 self.render.update()
 
@@ -143,7 +144,7 @@ class QtTouchupApp(QMainWindow):
 
 class RenderWin(QMainWindow):
 
-    def __init__(self, loc, img, w,h, parent=None):
+    def __init__(self, loc, img, w, h, r, parent=None):
         super(RenderWin, self).__init__(parent)
         self.parent = parent
         
@@ -155,7 +156,7 @@ class RenderWin(QMainWindow):
                     parent.y() + parent.height()/2)
 
         # window data and mask
-        self.img, self.w, self.h = img, w, h
+        self.img, self.w, self.h, self.r = img, w, h, r
         self.reset_mask()
         self.clip_w = lambda x: qt_touchup_lib.clip(x, 0, self.w - 1)
         self.clip_h = lambda x: qt_touchup_lib.clip(x, 0, self.h - 1)
@@ -176,17 +177,20 @@ class RenderWin(QMainWindow):
         
         if Qt.LeftButton and self.is_clicked:
 
-            # draw trail on mask_display
             painter = QPainter(self.mask_display)
-            painter.setPen(QPen(Qt.gray, 2, Qt.SolidLine))
+            painter.setPen(QPen(Qt.gray, self.r, Qt.SolidLine))
             painter.drawLine(self.prev_point, event.pos())
+
             self.prev_point = event.pos()
             self.update()
 
-            # update mask
-            # TODO: have to fill mask with matching radius as pen
-            self.mask[  self.clip_w(event.pos().x()-1), 
-                        self.clip_h(event.pos().y()-1)] = 1
+            self.fill_mask_radius(event.pos().x(), event.pos().y())
+
+    def fill_mask_radius(self, x, y):
+        for i in range(self.clip_w(x - self.r), self.clip_w(x + self.r - 1)):
+            for j in range(self.clip_h(y - self.r), self.clip_h(y + self.r - 1)):
+                if ((i - x)**2 + (j - y)**2) <= self.r**2:
+                    self.mask[i, j] = 1
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -198,4 +202,6 @@ class RenderWin(QMainWindow):
 
     def closeEvent(self, event):
         self.parent.on_finish_editing()
+        self.reset_mask()
         event.accept(); self.destroy()
+        

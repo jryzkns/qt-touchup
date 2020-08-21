@@ -60,3 +60,4 @@ def touch_up(orig, mask, rad, mode):
     if orig.shape[-1] == 4:
         res = np.dstack((res, np.expand_dims(orig[:,:,3], axis=2)))
     return res
+    
