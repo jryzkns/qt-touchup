@@ -62,7 +62,7 @@ class QtTouchupApp(QMainWindow):
         self.touch_up_radius = 5
         self.touch_up_slider = QSlider(Qt.Horizontal, self)
         self.touch_up_slider.setGeometry(QRect(15, 235, 75, 20))
-        self.touch_up_slider.setMinimum(1)
+        self.touch_up_slider.setMinimum(2)
         self.touch_up_slider.setMaximum(10)
         self.touch_up_slider.setSingleStep(1)
         self.touch_up_slider.setValue(self.touch_up_radius)
@@ -77,13 +77,29 @@ class QtTouchupApp(QMainWindow):
         self.touchup_mode = mode
 
     def on_confirm_touchup_click(self):
-        self.img_raw = qt_touchup_lib.touch_up( self.img_raw,
-                                                self.render.mask,
-                                                self.touch_up_radius,
-                                                self.touchup_mode)
-        self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
-        self.render.reset_mask()
-        self.render.update()
+                      
+        mask_locs = [ (j, i)
+                        for i in range(self.h) 
+                        for j in range(self.w) 
+                            if self.render.mask[j, i] == 1]              
+
+        if len(mask_locs) > 10:
+            mask_xs, mask_ys = zip(*mask_locs)
+
+            x_min, x_max = min(mask_xs), max(mask_xs)
+            y_min, y_max = min(mask_ys), max(mask_ys)
+
+            img_slice  = self.img_raw[x_min : x_max, y_min : y_max, :]
+            mask_slice = self.render.mask[x_min : x_max, y_min : y_max]
+            touched_up_slice = qt_touchup_lib.touch_up( img_slice,
+                                                        mask_slice,
+                                                        self.touch_up_radius,
+                                                        self.touchup_mode)
+    
+            self.img_raw[x_min : x_max, y_min : y_max, :] = touched_up_slice
+            self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
+            self.render.reset_mask()
+            self.render.update()
 
     def on_confirm_clear_click(self):
         self.render.reset_mask()

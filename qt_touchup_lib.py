@@ -18,10 +18,10 @@ def render_qimage(pixdata, w, h):
         img.setPixel(i % w, i // w, qRgb(*pixelrgb))
     return img
 
-def get_trans_qimage(w,h):
-    return QImage(w,h, QImage.Format_ARGB32)
+def get_trans_qimage(w, h):
+    return QImage(w, h, QImage.Format_ARGB32)
 
-def clip(x,lo,hi):
+def clip(x, lo, hi):
     return lo if x <= lo else (hi if x > hi else x)
 
 def qimg2raws(qimg):
@@ -60,4 +60,3 @@ def touch_up(orig, mask, rad, mode):
     if orig.shape[-1] == 4:
         res = np.dstack((res, np.expand_dims(orig[:,:,3], axis=2)))
     return res
-    
