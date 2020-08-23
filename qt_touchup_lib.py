@@ -7,10 +7,14 @@ def load_img(in_path):
     im = Image.open(in_path)
     imgdata, w, h, b = im.getdata(), *im.size, len(im.getbands())
     imgdata = np.array(imgdata).reshape((h, w, b))
-    imgdata = np.transpose(imgdata, (1,0,2))
+    imgdata = np.transpose(imgdata, (1, 0, 2))
     imgdata = imgdata.astype(np.uint8)
 
     return imgdata, w, h
+
+def save_img(data, out_path):
+    outimg = Image.fromarray(np.transpose(data, (1, 0, 2)))
+    outimg.save(out_path)
 
 def render_qimage(pixdata, w, h):
     img = QImage(w, h, QImage.Format_RGB888)
@@ -18,8 +22,11 @@ def render_qimage(pixdata, w, h):
         img.setPixel(i % w, i // w, qRgb(*pixelrgb))
     return img
 
-def get_trans_qimage(w,h):
+def get_trans_qimage(w, h):
     return QImage(w,h, QImage.Format_ARGB32)
+
+def get_blank_mask(w, h):
+    return np.zeros((pad_to_even(w), pad_to_even(h))).astype(np.uint8)
 
 def clip(x,lo,hi):
     return lo if x <= lo else (hi if x > hi else x)
