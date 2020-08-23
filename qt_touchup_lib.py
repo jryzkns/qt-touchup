@@ -18,7 +18,7 @@ def render_qimage(pixdata, w, h):
         img.setPixel(i % w, i // w, qRgb(*pixelrgb))
     return img
 
-def get_trans_qimage(w, h):
+def get_trans_qimg(w, h):
     return QImage(w, h, QImage.Format_ARGB32)
 
 def clip(x, lo, hi):
@@ -60,3 +60,29 @@ def touch_up(orig, mask, rad, mode):
     if orig.shape[-1] == 4:
         res = np.dstack((res, np.expand_dims(orig[:,:,3], axis=2)))
     return res
+
+def g_pt_mindist( group, pt,
+    # chebyshev distance
+    norm = lambda a, b, c, d: max(abs(a - c), abs(b - d))):
+    min_dist = norm(*pt, *group[0])
+    for pt_ in group[1:]:
+        dist = norm(*pt, *pt_)
+        if dist < min_dist:
+            min_dist = dist
+    return min_dist
+
+def pad_to_even(x):
+    return x if x % 2 == 0 else (x >> 1) + 1 << 1
+
+def subsample2x(m):
+    return m.reshape((m.shape[0] >> 1, 2, m.shape[1] >> 1, 2)).mean(-1).mean(1)
+
+def get_mask_locs(m, th = 0.5):
+    return list(np.argwhere(m > th).astype(np.int16))
+
+def reupscaled_group_bounds(g, w, h, padding = 20):
+    xs, ys = zip(*g)
+    return  clip((min(xs) << 1) - padding, 0, w), \
+            clip((max(xs) << 1) + padding, 0, w), \
+            clip((min(ys) << 1) - padding, 0, h), \
+            clip((max(ys) << 1) + padding, 0, h)
