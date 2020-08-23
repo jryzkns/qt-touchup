@@ -57,8 +57,6 @@ class QtTouchupApp(QMainWindow):
         self.moderadbutton3.toggled.connect(
             lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_CUSTOM))
 
-        # TODO: set up a signal for updating a label that displays the 
-        # value and updates the mask radius
         self.touch_up_radius = 5
         self.touch_up_slider = QSlider(Qt.Horizontal, self)
         self.touch_up_slider.setGeometry(QRect(15, 235, 75, 20))
@@ -78,28 +76,50 @@ class QtTouchupApp(QMainWindow):
 
     def on_confirm_touchup_click(self):
                       
-        mask_locs = [ (j, i)
-                        for i in range(self.h) 
-                        for j in range(self.w) 
-                            if self.render.mask[j, i] == 1]              
+        subsampled_mask = qt_touchup_lib.subsample2x(self.render.mask)
+        mask_locs = qt_touchup_lib.get_mask_locs(subsampled_mask)
 
-        if len(mask_locs) > 10:
-            mask_xs, mask_ys = zip(*mask_locs)
+        min_dist_th = 2
 
-            x_min, x_max = min(mask_xs), max(mask_xs)
-            y_min, y_max = min(mask_ys), max(mask_ys)
+        group_bounds = []
+        while len(mask_locs) > 0:
+            group = [mask_locs.pop()]
 
-            img_slice  = self.img_raw[x_min : x_max, y_min : y_max, :]
-            mask_slice = self.render.mask[x_min : x_max, y_min : y_max]
+            while True:
+
+                min_dists = [qt_touchup_lib.g_pt_mindist(group, pt)
+                                for pt in mask_locs]
+
+                if len(min_dists) == 0: break
+                if min(min_dists) > min_dist_th: break
+
+                remains = []
+                for i, pt in enumerate(mask_locs):
+                    if min_dists[i] <= min_dist_th:
+                        group.append(pt)
+                    else:
+                        remains.append(pt)
+
+                mask_locs = remains
+
+            group_bounds.append(
+                qt_touchup_lib.reupscaled_group_bounds(group, self.w, self.h))
+
+
+        for bounds in group_bounds:
+            xmi, xma, ymi, yma = bounds
+            img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
+            mask_slice = self.render.mask[xmi : xma, ymi : yma]
             touched_up_slice = qt_touchup_lib.touch_up( img_slice,
                                                         mask_slice,
                                                         self.touch_up_radius,
                                                         self.touchup_mode)
     
-            self.img_raw[x_min : x_max, y_min : y_max, :] = touched_up_slice
-            self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
-            self.render.reset_mask()
-            self.render.update()
+            self.img_raw[xmi : xma, ymi : yma, :] = touched_up_slice
+
+        self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
+        self.render.reset_mask()
+        self.render.update()
 
     def on_confirm_clear_click(self):
         self.render.reset_mask()
@@ -175,8 +195,10 @@ class RenderWin(QMainWindow):
 
     def reset_mask(self):
 
-        self.mask = np.zeros((self.w, self.h)).astype(np.uint8)
-        self.mask_display = qt_touchup_lib.get_trans_qimage(self.w, self.h)
+        self.mask = np.zeros((  qt_touchup_lib.pad_to_even(self.w), 
+                                qt_touchup_lib.pad_to_even(self.h))
+                                ).astype(np.uint8)
+        self.mask_display = qt_touchup_lib.get_trans_qimg(self.w, self.h)
         self.update()
         
     def paintEvent(self, event):
