@@ -1,11 +1,10 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QLabel, QPushButton, QWidget, QMessageBox, QRadioButton, QSlider
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint
-from PyQt5.QtGui import QImage, QPainter, QPen, QBrush, QColor
-import qt_touchup_lib
+from PyQt5.QtCore import Qt, QSize, QRect
+
 import threading
 
-from PIL import Image
-import numpy as np
+from renderwin import RenderWin
+import qt_touchup_lib as qtl
 
 class QtTouchupApp(QMainWindow):
 
@@ -14,7 +13,7 @@ class QtTouchupApp(QMainWindow):
 
         self.raw_img_edit_lock = threading.Lock()
 
-        self.setFixedSize(QSize(894, 651))
+        self.setFixedSize(QSize(640, 360))
         self.setWindowTitle(" ")
         self.render = None
 
@@ -40,25 +39,25 @@ class QtTouchupApp(QMainWindow):
         self.touchupbutton.setGeometry(QRect(175, 115, 150, 40))
         self.touchupbutton.setEnabled(False)
 
-        self.touchup_mode = qt_touchup_lib.INPAINT_TELEA
+        self.touchup_mode = qtl.INPAINT_TELEA
 
         self.moderadbutton1 = QRadioButton("TELEA", self)
         self.moderadbutton1.setGeometry(QRect(15, 165, 150, 20))
         self.moderadbutton1.setChecked(True)
         self.moderadbutton1.toggled.connect(
-            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_TELEA))
+            lambda : self.set_touchup_mode(qtl.INPAINT_TELEA))
 
         self.moderadbutton2 = QRadioButton("NS", self)
         self.moderadbutton2.setGeometry(QRect(15, 185, 150, 20))
         self.moderadbutton2.setChecked(False)
         self.moderadbutton2.toggled.connect(
-            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_NS))
+            lambda : self.set_touchup_mode(qtl.INPAINT_NS))
 
         self.moderadbutton3 = QRadioButton("CUSTOM", self)
         self.moderadbutton3.setGeometry(QRect(15, 205, 150, 20))
         self.moderadbutton3.setChecked(False)
         self.moderadbutton3.toggled.connect(
-            lambda : self.set_touchup_mode(qt_touchup_lib.INPAINT_CUSTOM))
+            lambda : self.set_touchup_mode(qtl.INPAINT_CUSTOM))
 
         self.touch_up_radius = 5
         self.touch_up_slider = QSlider(Qt.Horizontal, self)
@@ -80,35 +79,33 @@ class QtTouchupApp(QMainWindow):
     def on_confirm_touchup_click(self):
 
         chunk_th_jobs = []
-        for bounds in qt_touchup_lib.generate_mask_windows(self.render.mask):
-            chunk_th_jobs.append( 
-                    threading.Thread(   daemon=True, 
-                                        target=self.touch_up_region, 
+        for bounds in qtl.generate_mask_windows(self.render.canvas.mask):
+            chunk_th_jobs.append(
+                    threading.Thread(   daemon=True,
+                                        target=self.touch_up_region,
                                         args=(bounds)))
             chunk_th_jobs[-1].start()
 
         map(lambda x: x.join(), chunk_th_jobs)
 
-        self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
-        self.render.reset_mask()
-        self.render.update()
-        self.render.reset_mask()
+        self.render.canvas.img = qtl.raws2qimg(self.img_raw)
+        self.render.canvas.reset_mask()
+        self.render.canvas.update()
 
     def touch_up_region(self, xmi, xma, ymi, yma):
         img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
-        mask_slice = self.render.mask[xmi : xma, ymi : yma]
+        mask_slice = self.render.canvas.mask[xmi : xma, ymi : yma]
         with self.raw_img_edit_lock:
-            self.img_raw[xmi : xma, ymi : yma, :] = qt_touchup_lib.touch_up(
+            self.img_raw[xmi : xma, ymi : yma, :] = qtl.touch_up(
                     img_slice, mask_slice, self.touch_up_radius, self.touchup_mode)
 
     def on_confirm_clear_click(self):
-        self.render.reset_mask()
+        self.render.canvas.reset_mask()
 
     def on_confirm_saveimg_click(self):
         # TODO: add default image file options and default save fn
         self.savepath = QFileDialog.getSaveFileName(self)[0]
-        outimg = Image.fromarray(np.transpose(self.img_raw, (1,0,2)))
-        outimg.save(self.savepath)
+        qtl.save_img(self.img_raw,self.savepath)
 
     def on_finish_editing(self):
 
@@ -126,29 +123,29 @@ class QtTouchupApp(QMainWindow):
             return
 
         self.imgpath = QFileDialog.getOpenFileName(self)[0]
-        
+
         if self.imgpath != '': # continue only when a file has been chosen
 
-            try:
-       
-                self.img_raw, self.w, self.h = qt_touchup_lib.load_img(self.imgpath)
+            # try:
+
+                self.img_raw, self.w, self.h = qtl.load_img(self.imgpath)
                 self.imglabel.setText(self.imgpath.split("/")[-1])
+
+                # setup render window
+                self.render = RenderWin(QRect(0, 0, self.w, self.h),
+                                    qtl.raws2qimg(self.img_raw),
+                                    self.w, self.h, self.touch_up_radius, self)
+                self.render.show()
 
                 # activate UI
                 self.loadimgbutton.setEnabled(False)
                 self.clearbutton.setEnabled(True)
                 self.touchupbutton.setEnabled(True)
 
-                # setup render window
-                self.render = RenderWin(QRect(0, 0, self.w, self.h),
-                                    qt_touchup_lib.raws2qimg(self.img_raw),
-                                    self.w, self.h, self.touch_up_radius, self)
-                self.render.show()
-                self.render.update()
+            # except:
 
-            except:
+            #     self.raise_invalid_file_err()
 
-                self.raise_invalid_file_err()
 
     def raise_invalid_file_err(self):
 
@@ -157,68 +154,3 @@ class QtTouchupApp(QMainWindow):
         e.setText("Invalid file encountered!")
         e.setStandardButtons(QMessageBox.Ok)
         e.exec_()
-
-class RenderWin(QMainWindow):
-
-    def __init__(self, loc, img, w, h, r, parent=None):
-        super(RenderWin, self).__init__(parent)
-        self.parent = parent
-        
-        # window properties
-        self.setWindowTitle(" ")
-        self.setGeometry(loc)
-        self.setFixedSize(w, h)
-        self.move(  parent.x() + parent.width()/2, 
-                    parent.y() + parent.height()/2)
-
-        # window data and mask
-        self.img, self.w, self.h, self.r = img, w, h, r
-        self.reset_mask()
-        self.clip_w = lambda x: qt_touchup_lib.clip(x, 0, self.w - 1)
-        self.clip_h = lambda x: qt_touchup_lib.clip(x, 0, self.h - 1)
-
-    def reset_mask(self):
-
-        self.mask = np.zeros((  qt_touchup_lib.pad_to_even(self.w), 
-                                qt_touchup_lib.pad_to_even(self.h))
-                                ).astype(np.uint8)
-        self.mask_display = qt_touchup_lib.get_trans_qimg(self.w, self.h)
-        self.update()
-        
-    def paintEvent(self, event):
-
-        painter = QPainter(self)
-        painter.drawImage(QPoint(0,0), self.img)
-        painter.drawImage(QPoint(0,0), self.mask_display)
-
-    def mouseMoveEvent(self, event):
-        
-        if Qt.LeftButton and self.is_clicked:
-
-            painter = QPainter(self.mask_display)
-            painter.setPen(QPen(Qt.gray, self.r, Qt.SolidLine))
-            painter.drawLine(self.prev_point, event.pos())
-
-            self.prev_point = event.pos()
-            self.update()
-
-            self.fill_mask_radius(event.pos().x(), event.pos().y())
-
-    def fill_mask_radius(self, x, y):
-        for i in range(self.clip_w(x - self.r), self.clip_w(x + self.r - 1)):
-            for j in range(self.clip_h(y - self.r), self.clip_h(y + self.r - 1)):
-                if ((i - x)**2 + (j - y)**2) <= self.r**2:
-                    self.mask[i, j] = 1
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.is_clicked, self.prev_point = True, event.pos()
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.is_clicked = False
-
-    def closeEvent(self, event):
-        self.parent.on_finish_editing()
-        self.reset_mask()
-        event.accept(); self.destroy()
