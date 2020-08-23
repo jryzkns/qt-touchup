@@ -105,10 +105,6 @@ class QtTouchupApp(QMainWindow):
 
     def on_confirm_loadimg_click(self):
 
-        # do not allow more than 1 image to load
-        if self.render is not None:
-            return
-
         self.imgpath = QFileDialog.getOpenFileName(self)[0]
         
         if self.imgpath != '': # continue only when a file has been chosen
