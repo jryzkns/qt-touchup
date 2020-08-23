@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, QLabel, QPushButton, QWidg
 from PyQt5.QtCore import Qt, QSize, QRect, QPoint
 from PyQt5.QtGui import QImage, QPainter, QPen, QBrush, QColor
 import qt_touchup_lib
+import threading
 
 from PIL import Image
 import numpy as np
@@ -66,6 +67,8 @@ class QtTouchupApp(QMainWindow):
         self.touch_up_slider.setValue(self.touch_up_radius)
         self.touch_up_slider.valueChanged.connect(self.on_slider_update_value)
 
+        self.raw_img_edit_lock = threading.Lock()
+
     def on_slider_update_value(self):
         self.touch_up_radius = self.touch_up_slider.value()
         if self.render is not None:
@@ -75,10 +78,10 @@ class QtTouchupApp(QMainWindow):
         self.touchup_mode = mode
 
     def on_confirm_touchup_click(self):
-                      
+
+        # TODO: wrap this logic up as a lib call
         subsampled_mask = qt_touchup_lib.subsample2x(self.render.mask)
         mask_locs = qt_touchup_lib.get_mask_locs(subsampled_mask)
-
         min_dist_th = 2
 
         group_bounds = []
@@ -105,21 +108,25 @@ class QtTouchupApp(QMainWindow):
             group_bounds.append(
                 qt_touchup_lib.reupscaled_group_bounds(group, self.w, self.h))
 
-
+        chunk_th_jobs = []
         for bounds in group_bounds:
-            xmi, xma, ymi, yma = bounds
-            img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
-            mask_slice = self.render.mask[xmi : xma, ymi : yma]
-            touched_up_slice = qt_touchup_lib.touch_up( img_slice,
-                                                        mask_slice,
-                                                        self.touch_up_radius,
-                                                        self.touchup_mode)
-    
-            self.img_raw[xmi : xma, ymi : yma, :] = touched_up_slice
+            chunk_th_jobs.append( threading.Thread(
+                daemon=True, target=self.touch_up_region, args=(bounds)))
+            chunk_th_jobs[-1].start()
+
+        map(lambda x: x.join(), chunk_th_jobs)
 
         self.render.img = qt_touchup_lib.raws2qimg(self.img_raw)
         self.render.reset_mask()
         self.render.update()
+        self.render.reset_mask()
+
+    def touch_up_region(self, xmi, xma, ymi, yma):
+        img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
+        mask_slice = self.render.mask[xmi : xma, ymi : yma]
+        with self.raw_img_edit_lock:
+            self.img_raw[xmi : xma, ymi : yma, :] = qt_touchup_lib.touch_up(
+                    img_slice, mask_slice, self.touch_up_radius, self.touchup_mode)
 
     def on_confirm_clear_click(self):
         self.render.reset_mask()
@@ -127,16 +134,14 @@ class QtTouchupApp(QMainWindow):
     def on_confirm_saveimg_click(self):
         # TODO: add default image file options and default save fn
         self.savepath = QFileDialog.getSaveFileName(self)[0]
-        outimg = Image.fromarray(np.transpose(self.img_raw, (1,0,2)))
+        outimg = Image.fromarray(np.transpose(self.img_raw, (1, 0, 2)))
         outimg.save(self.savepath)
 
     def on_finish_editing(self):
-
         self.loadimgbutton.setEnabled(True)
         self.clearbutton.setEnabled(False)
         self.touchupbutton.setEnabled(False)
         self.imglabel.setText("")
-
         self.render = None
 
     def on_confirm_loadimg_click(self):
