@@ -12,6 +12,8 @@ class QtTouchupApp(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
 
+        self.raw_img_edit_lock = threading.Lock()
+
         self.setFixedSize(QSize(894, 651))
         self.setWindowTitle(" ")
         self.render = None
@@ -67,8 +69,6 @@ class QtTouchupApp(QMainWindow):
         self.touch_up_slider.setValue(self.touch_up_radius)
         self.touch_up_slider.valueChanged.connect(self.on_slider_update_value)
 
-        self.raw_img_edit_lock = threading.Lock()
-
     def on_slider_update_value(self):
         self.touch_up_radius = self.touch_up_slider.value()
         if self.render is not None:
@@ -79,39 +79,12 @@ class QtTouchupApp(QMainWindow):
 
     def on_confirm_touchup_click(self):
 
-        # TODO: wrap this logic up as a lib call
-        subsampled_mask = qt_touchup_lib.subsample2x(self.render.mask)
-        mask_locs = qt_touchup_lib.get_mask_locs(subsampled_mask)
-        min_dist_th = 2
-
-        group_bounds = []
-        while len(mask_locs) > 0:
-            group = [mask_locs.pop()]
-
-            while True:
-
-                min_dists = [qt_touchup_lib.g_pt_mindist(group, pt)
-                                for pt in mask_locs]
-
-                if len(min_dists) == 0: break
-                if min(min_dists) > min_dist_th: break
-
-                remains = []
-                for i, pt in enumerate(mask_locs):
-                    if min_dists[i] <= min_dist_th:
-                        group.append(pt)
-                    else:
-                        remains.append(pt)
-
-                mask_locs = remains
-
-            group_bounds.append(
-                qt_touchup_lib.reupscaled_group_bounds(group, self.w, self.h))
-
         chunk_th_jobs = []
-        for bounds in group_bounds:
-            chunk_th_jobs.append( threading.Thread(
-                daemon=True, target=self.touch_up_region, args=(bounds)))
+        for bounds in qt_touchup_lib.generate_mask_windows(self.render.mask):
+            chunk_th_jobs.append( 
+                    threading.Thread(   daemon=True, 
+                                        target=self.touch_up_region, 
+                                        args=(bounds)))
             chunk_th_jobs[-1].start()
 
         map(lambda x: x.join(), chunk_th_jobs)
@@ -134,17 +107,23 @@ class QtTouchupApp(QMainWindow):
     def on_confirm_saveimg_click(self):
         # TODO: add default image file options and default save fn
         self.savepath = QFileDialog.getSaveFileName(self)[0]
-        outimg = Image.fromarray(np.transpose(self.img_raw, (1, 0, 2)))
+        outimg = Image.fromarray(np.transpose(self.img_raw, (1,0,2)))
         outimg.save(self.savepath)
 
     def on_finish_editing(self):
+
         self.loadimgbutton.setEnabled(True)
         self.clearbutton.setEnabled(False)
         self.touchupbutton.setEnabled(False)
         self.imglabel.setText("")
+
         self.render = None
 
     def on_confirm_loadimg_click(self):
+
+        # do not allow more than 1 image to load
+        if self.render is not None:
+            return
 
         self.imgpath = QFileDialog.getOpenFileName(self)[0]
         
@@ -243,4 +222,3 @@ class RenderWin(QMainWindow):
         self.parent.on_finish_editing()
         self.reset_mask()
         event.accept(); self.destroy()
-        
