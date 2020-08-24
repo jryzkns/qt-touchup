@@ -77,6 +77,9 @@ class QtTouchupApp(QMainWindow):
         self.touchup_mode = mode
 
     def on_confirm_touchup_click(self):
+        threading.Thread(daemon=True, target=self.touchup_job).start()
+
+    def touchup_job(self):
 
         chunk_th_jobs = []
         for bounds in qtl.generate_mask_windows(self.render.canvas.mask):
@@ -112,40 +115,36 @@ class QtTouchupApp(QMainWindow):
         self.loadimgbutton.setEnabled(True)
         self.clearbutton.setEnabled(False)
         self.touchupbutton.setEnabled(False)
-        self.imglabel.setText("")
+        self.imglabel.setText("No image Loaded!")
 
         self.render = None
 
     def on_confirm_loadimg_click(self):
 
-        # do not allow more than 1 image to load
-        if self.render is not None:
-            return
-
         self.imgpath = QFileDialog.getOpenFileName(self)[0]
 
-        if self.imgpath != '': # continue only when a file has been chosen
+        # continue only when a file has been chosen
+        if self.imgpath != '':
+            self.load_img_and_render()
 
-            # try:
+    def load_img_and_render(self):
 
-                self.img_raw, self.w, self.h = qtl.load_img(self.imgpath)
-                self.imglabel.setText(self.imgpath.split("/")[-1])
+        try:
+            self.img_raw, self.w, self.h = qtl.load_img(self.imgpath)
 
-                # setup render window
-                self.render = RenderWin(QRect(0, 0, self.w, self.h),
-                                    qtl.raws2qimg(self.img_raw),
-                                    self.w, self.h, self.touch_up_radius, self)
-                self.render.show()
+            self.render = RenderWin(    QRect(0, 0, self.w, self.h),
+                                        qtl.raws2qimg(self.img_raw),
+                                        self.w, self.h,
+                                        self.touch_up_radius, self)
+            self.render.show()
 
-                # activate UI
-                self.loadimgbutton.setEnabled(False)
-                self.clearbutton.setEnabled(True)
-                self.touchupbutton.setEnabled(True)
+            self.imglabel.setText(self.imgpath.split("/")[-1])
+            self.loadimgbutton.setEnabled(False)
+            self.clearbutton.setEnabled(True)
+            self.touchupbutton.setEnabled(True)
 
-            # except:
-
-            #     self.raise_invalid_file_err()
-
+        except:
+            self.raise_invalid_file_err()
 
     def raise_invalid_file_err(self):
 
