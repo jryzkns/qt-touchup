@@ -1,40 +1,19 @@
-# Qt-Touch up
+# Qt-Touchup
 
-This app will help you touch up any section of a photo as you draw on it. This could be useful for many applications such as removing blemishes and extra objects in a photo.
+This app will :sparkles: *magically* :sparkles: help you touch up any section of a photo by drawing on it, removing things that you don't want to see :see_no_evil: ! It could be blemishes, objects, or people :smiling_imp:
 
 ## Getting Started
 
-Clone the project in your local machine, and run the program using the following command
+The dependencies of this project can be found in `requirements.txt`, simply install them with the following command:
 
 ```bash
-python3 main.py
+pip install -r requirements.txt
 ```
-
-### Prerequisites
-
-As of now, this application requires all of the following:
-
-```
-python3
-PyQt5
-numpy
-PIL
-opencv-python
-```
-
-## Built With
-
-* [PyQt5](https://www.riverbankcomputing.com/software/pyqt/) - The GUI framework used
-* [Numpy](https://numpy.org/) - Used for calculations
-* [PIL](http://www.pythonware.com/products/pil/) - Python Image Library
-* [OpenCV](https://opencv.org/)- Library of programming functions mainly aimed at real-time computer vision
 
 ## Authors
 
+Client & UI:
 * [**Jack Zhou**](https://github.com/jryzkns)
+
+Readme page:
 * [**Fatemeh K.**](https://github.com/kfate)
-
-
-## License
-
-To be determined
