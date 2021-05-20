@@ -16,12 +16,6 @@ def save_img(data, out_path):
     outimg = Image.fromarray(np.transpose(data, (1, 0, 2)))
     outimg.save(out_path)
 
-def render_qimage(pixdata, w, h):
-    img = QImage(w, h, QImage.Format_RGB888)
-    for i, pixelrgb in enumerate(pixdata):
-        img.setPixel(i % w, i // w, qRgb(*pixelrgb))
-    return img
-
 def get_trans_qimage(w, h):
     return QImage(w,h, QImage.Format_ARGB32)
 
@@ -43,13 +37,11 @@ def qimg2raws(qimg):
 
 def raws2qimg(raws):
     w, h, b = raws.shape
-    img = QImage(w, h, QImage.Format_RGB888 
-                            if b == 3 else 
-                                QImage.Format_ARGB32)
-    for i in range(w): 
-        for j in range(h):
-            qc = QColor(*raws[i, j,:])
-            img.setPixelColor(QPoint(i, j), qc)
+    img = QImage(np.transpose(raws, (1, 0, 2)).tobytes(),
+                    w, h,
+                    QImage.Format_RGB888
+                        if b == 3 else
+                            QImage.Format_ARGB32)
     return img
 
 import cv2
@@ -102,11 +94,11 @@ def generate_mask_windows(m, th = 4):
         # initialize a cluster by extracting a point from locs
         cluster = [locs.pop()]
         while True:
-            # generate a list of minimum distances from 
+            # generate a list of minimum distances from
             # points to current cluster, init remainder list
             mi_dists = [c_pt_mindist(cluster, pt) for pt in locs]
 
-            # stop searching for this cluster if no more points left 
+            # stop searching for this cluster if no more points left
             # or no more close points to cluster
             if len(mi_dists) == 0 or min(mi_dists) > th:
                 break
