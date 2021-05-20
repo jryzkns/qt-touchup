@@ -28,6 +28,7 @@ class QtTouchupApp(QMainWindow):
         self.saveimgbutton = QPushButton("Save Image", self)
         self.saveimgbutton.clicked.connect(self.on_confirm_saveimg_click)
         self.saveimgbutton.setGeometry(QRect(15, 65, 150, 40))
+        self.saveimgbutton.setEnabled(False)
 
         self.clearbutton = QPushButton("Clear", self)
         self.clearbutton.clicked.connect(self.on_confirm_clear_click)
@@ -140,11 +141,15 @@ class QtTouchupApp(QMainWindow):
 
             self.imglabel.setText(self.imgpath.split("/")[-1])
             self.loadimgbutton.setEnabled(False)
+            self.saveimgbutton.setEnabled(True)
             self.clearbutton.setEnabled(True)
             self.touchupbutton.setEnabled(True)
 
         except:
             self.raise_invalid_file_err()
+
+    def on_child_destroyed(self):
+        self.saveimgbutton.setEnabled(False)
 
     def raise_invalid_file_err(self):
 

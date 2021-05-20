@@ -33,5 +33,6 @@ class RenderWin(QMainWindow):
 
     def closeEvent(self, event):
         self.parent.on_finish_editing()
+        self.parent.on_child_destroyed()
         self.canvas.reset_mask()
         event.accept(); self.destroy()
