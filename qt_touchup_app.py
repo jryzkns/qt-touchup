@@ -132,21 +132,22 @@ class QtTouchupApp(QMainWindow):
 
         try:
             self.img_raw, self.w, self.h = qtl.load_img(self.imgpath)
-
-            self.render = RenderWin(    QRect(0, 0, self.w, self.h),
-                                        qtl.raws2qimg(self.img_raw),
-                                        self.w, self.h,
-                                        self.touch_up_radius, self)
-            self.render.show()
-
-            self.imglabel.setText(self.imgpath.split("/")[-1])
-            self.loadimgbutton.setEnabled(False)
-            self.saveimgbutton.setEnabled(True)
-            self.clearbutton.setEnabled(True)
-            self.touchupbutton.setEnabled(True)
-
         except:
             self.raise_invalid_file_err()
+            return
+
+        self.render = RenderWin(    QRect(0, 0, self.w, self.h),
+                                    qtl.raws2qimg(self.img_raw),
+                                    self.w, self.h,
+                                    self.touch_up_radius, self)
+        self.render.show()
+
+        self.imglabel.setText(self.imgpath.split("/")[-1])
+        self.loadimgbutton.setEnabled(False)
+        self.saveimgbutton.setEnabled(True)
+        self.clearbutton.setEnabled(True)
+        self.touchupbutton.setEnabled(True)
+
 
     def on_child_destroyed(self):
         self.saveimgbutton.setEnabled(False)
