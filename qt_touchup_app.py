@@ -83,7 +83,7 @@ class QtTouchupApp(QMainWindow):
     def touchup_job(self):
 
         chunk_th_jobs = []
-        for bounds in qtl.generate_mask_windows(self.render.canvas.mask):
+        for bounds in [(0, 0, *self.render.canvas.mask.shape)]:
             chunk_th_jobs.append(
                     threading.Thread(   daemon=True,
                                         target=self.touch_up_region,
@@ -96,7 +96,7 @@ class QtTouchupApp(QMainWindow):
         self.render.canvas.reset_mask()
         self.render.canvas.update()
 
-    def touch_up_region(self, xmi, xma, ymi, yma):
+    def touch_up_region(self, xmi, ymi, xma, yma):
         img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
         mask_slice = self.render.canvas.mask[xmi : xma, ymi : yma]
         with self.raw_img_edit_lock:

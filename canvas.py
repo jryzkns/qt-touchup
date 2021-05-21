@@ -16,9 +16,7 @@ class Canvas(QWidget):
         self.clip_h = lambda x: qtl.clip(x, 0, self.h - 1)
 
     def reset_mask(self):
-        self.qmask = qtl.get_trans_qimage(  qtl.pad_to_even(self.w), 
-                                            qtl.pad_to_even(self.h), 
-                                            QImage.Format_Alpha8)
+        self.qmask = qtl.get_trans_qimage(self.w, self.h, QImage.Format_Alpha8)
         self.mask = qtl.get_mask_from_qimg(self.qmask)
         self.mask_display = qtl.get_trans_qimage(self.w, self.h)
         self.update()
