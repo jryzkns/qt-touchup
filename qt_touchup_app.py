@@ -13,7 +13,7 @@ class QtTouchupApp(QMainWindow):
 
         self.raw_img_edit_lock = threading.Lock()
 
-        self.setFixedSize(QSize(640, 360))
+        self.setFixedSize(QSize(350, 360))
         self.setWindowTitle(" ")
         self.render = None
 

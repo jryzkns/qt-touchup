@@ -1,5 +1,4 @@
-from PyQt5.QtCore import QPoint
-from PyQt5.QtGui import QImage, QColor
+from PyQt5.QtGui import QImage
 from PIL import Image
 import numpy as np
 
@@ -16,24 +15,18 @@ def save_img(data, out_path):
     outimg = Image.fromarray(np.transpose(data, (1, 0, 2)))
     outimg.save(out_path)
 
-def get_trans_qimage(w, h):
-    return QImage(w,h, QImage.Format_ARGB32)
+def get_trans_qimage(w, h, fmt = QImage.Format_ARGB32):
+    img = QImage(w, h, fmt)
+    img.fill(0)
+    return img
 
-def get_blank_mask(w, h):
-    return np.zeros((pad_to_even(w), pad_to_even(h))).astype(np.uint8)
+def get_mask_from_qimg(qimg):
+    ptr = qimg.constBits()
+    ptr.setsize(qimg.byteCount())
+    return np.array(ptr, copy=True).reshape(qimg.height(), qimg.width()).transpose()
 
 def clip(x,lo,hi):
     return lo if x <= lo else (hi if x > hi else x)
-
-def qimg2raws(qimg):
-    raws = np.zeros((qimg.width(), qimg.height(),3))
-    for i in range(qimg.width()):
-        for j in range(qimg.height()):
-            pix = qimg.pixelColor(i,j)
-            raws[i,j,0] = pix.red()
-            raws[i,j,1] = pix.green()
-            raws[i,j,2] = pix.blue()
-    return raws
 
 def raws2qimg(raws):
     w, h, b = raws.shape
