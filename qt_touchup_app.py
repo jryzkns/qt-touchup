@@ -69,6 +69,22 @@ class QtTouchupApp(QMainWindow):
         self.touch_up_slider.setValue(self.touch_up_radius)
         self.touch_up_slider.valueChanged.connect(self.on_slider_update_value)
 
+        self.stroke_windows = []
+
+    def add_new_window(self, new_wind):
+        new_wind = qtl.rect_expand(*new_wind)
+        overlap, complement = [new_wind], []
+        while overlap != []:
+            new_wind = qtl.merge_all_rects(overlap + [new_wind])
+            overlap = []
+            for wind in self.stroke_windows:
+                if qtl.rect_overlap(*new_wind, *wind):
+                    overlap.append(wind)
+                else:
+                    complement.append(wind)
+            self.stroke_windows = complement
+        self.stroke_windows = complement + [new_wind]
+
     def on_slider_update_value(self):
         self.touch_up_radius = self.touch_up_slider.value()
         if self.render is not None:
@@ -78,12 +94,13 @@ class QtTouchupApp(QMainWindow):
         self.touchup_mode = mode
 
     def on_confirm_touchup_click(self):
+        self.touchupbutton.setEnabled(False)
         threading.Thread(daemon=True, target=self.touchup_job).start()
 
     def touchup_job(self):
 
         chunk_th_jobs = []
-        for bounds in [(0, 0, *self.render.canvas.mask.shape)]:
+        for bounds in self.stroke_windows:
             chunk_th_jobs.append(
                     threading.Thread(   daemon=True,
                                         target=self.touch_up_region,
@@ -95,6 +112,7 @@ class QtTouchupApp(QMainWindow):
         self.render.canvas.img = qtl.raws2qimg(self.img_raw)
         self.render.canvas.reset_mask()
         self.render.canvas.update()
+        self.touchupbutton.setEnabled(True)
 
     def touch_up_region(self, xmi, ymi, xma, yma):
         img_slice  = self.img_raw[xmi : xma, ymi : yma, :]
